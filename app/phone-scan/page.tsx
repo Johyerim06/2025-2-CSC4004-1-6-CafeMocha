@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } from '@zxing/library'
+import { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType, IScannerControls } from '@zxing/library'
 
 export default function PhoneScanPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -54,7 +54,7 @@ export default function PhoneScanPage() {
       readerRef.current = reader
 
       // 바코드 스캔 시작
-      const ctrl = await reader.decodeFromVideoDevice(
+      const ctrl: IScannerControls | null = await reader.decodeFromVideoDevice(
         null,
         videoRef.current,
         async (result) => {
@@ -88,7 +88,9 @@ export default function PhoneScanPage() {
       )
 
       return () => {
-        ctrl?.stop()
+        if (ctrl) {
+          ctrl.stop()
+        }
         if (stream) {
           stream.getTracks().forEach((track) => track.stop())
         }
