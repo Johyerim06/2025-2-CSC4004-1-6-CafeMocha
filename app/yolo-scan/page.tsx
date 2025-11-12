@@ -154,11 +154,24 @@ export default function YOLOScanPage() {
         const pc = await createWebRTCPeerConnection(
           deviceId,
           (stream) => {
-            console.log('WebRTC 스트림 수신 성공!')
+            console.log('WebRTC 스트림 수신 성공!', stream)
             setWebrtcStream(stream)
-            if (webrtcVideoRef.current) {
-              webrtcVideoRef.current.srcObject = stream
+            
+            // 비디오 요소에 스트림 할당 (즉시 시도)
+            const assignStream = () => {
+              if (webrtcVideoRef.current) {
+                console.log('비디오 요소에 스트림 할당:', stream)
+                webrtcVideoRef.current.srcObject = stream
+                webrtcVideoRef.current.play().catch((error) => {
+                  console.error('비디오 재생 오류:', error)
+                })
+              } else {
+                // 비디오 요소가 아직 준비되지 않았으면 잠시 후 재시도
+                setTimeout(assignStream, 100)
+              }
             }
+            assignStream()
+            
             // WebRTC 연결 성공 시 로컬 카메라 중지
             if (streamRef.current) {
               streamRef.current.getTracks().forEach((track: MediaStreamTrack) => track.stop())
@@ -237,6 +250,17 @@ export default function YOLOScanPage() {
       }
     }
   }, [isConnected, deviceId])
+
+  // WebRTC 스트림이 변경될 때 비디오 요소에 할당
+  useEffect(() => {
+    if (webrtcStream && webrtcVideoRef.current) {
+      console.log('WebRTC 스트림을 비디오 요소에 할당:', webrtcStream)
+      webrtcVideoRef.current.srcObject = webrtcStream
+      webrtcVideoRef.current.play().catch((error) => {
+        console.error('비디오 재생 오류:', error)
+      })
+    }
+  }, [webrtcStream])
 
   // QR 연동 상태 확인 및 카메라 시작 (핸드폰 비디오가 없을 때만)
   useEffect(() => {
@@ -331,12 +355,36 @@ export default function YOLOScanPage() {
                 // WebRTC 스트림 표시 (최우선)
                 <div className="w-full h-full relative">
                   <video
+                    key={`webrtc-${webrtcStream.id}`}
                     ref={webrtcVideoRef}
                     autoPlay
                     playsInline
+                    muted
                     className="w-full h-full object-contain"
+                    style={{ backgroundColor: '#000' }}
+                    onLoadedMetadata={() => {
+                      console.log('비디오 메타데이터 로드 완료', {
+                        videoWidth: webrtcVideoRef.current?.videoWidth,
+                        videoHeight: webrtcVideoRef.current?.videoHeight,
+                        readyState: webrtcVideoRef.current?.readyState
+                      })
+                      if (webrtcVideoRef.current) {
+                        webrtcVideoRef.current.play().catch((error) => {
+                          console.error('비디오 재생 오류:', error)
+                        })
+                      }
+                    }}
+                    onCanPlay={() => {
+                      console.log('비디오 재생 가능')
+                    }}
+                    onPlay={() => {
+                      console.log('비디오 재생 시작')
+                    }}
+                    onError={(e) => {
+                      console.error('비디오 오류:', e)
+                    }}
                   />
-                  <div className="absolute top-2 left-2 bg-green-500 text-white px-2 py-1 rounded text-xs">
+                  <div className="absolute top-2 left-2 bg-green-500 text-white px-2 py-1 rounded text-xs z-10">
                     WebRTC 연결됨 (실시간)
                   </div>
                 </div>
