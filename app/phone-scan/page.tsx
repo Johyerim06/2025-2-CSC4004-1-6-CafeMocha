@@ -54,7 +54,7 @@ export default function PhoneScanPage() {
       readerRef.current = reader
 
       // 바코드 스캔 시작
-      const ctrl = await reader.decodeFromVideoDevice(
+      await reader.decodeFromVideoDevice(
         null,
         videoRef.current,
         async (result) => {
@@ -89,8 +89,9 @@ export default function PhoneScanPage() {
 
       return () => {
         try {
-          if (ctrl && typeof (ctrl as any).stop === 'function') {
-            (ctrl as any).stop()
+          // reader를 통해 스캔 중지
+          if (readerRef.current) {
+            readerRef.current.reset()
           }
         } catch (error) {
           console.error('스캔 중지 오류:', error)
