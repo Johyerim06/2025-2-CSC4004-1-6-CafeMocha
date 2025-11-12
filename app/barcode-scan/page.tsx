@@ -4,6 +4,50 @@ import { useState, useEffect, useRef } from 'react'
 import { useStore } from '@/lib/store'
 import { Html5Qrcode } from 'html5-qrcode'
 
+// 핸드폰 비디오 스트림 컴포넌트
+function PhoneVideoStream({ deviceId }: { deviceId: string }) {
+  const [phoneVideoFrame, setPhoneVideoFrame] = useState<string | null>(null)
+
+  useEffect(() => {
+    const pollVideoFrame = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/phone/video?deviceId=${deviceId}`)
+        const result = await response.json()
+
+        if (result.success && result.imageData) {
+          setPhoneVideoFrame(result.imageData)
+        }
+      } catch (error) {
+        console.error('비디오 프레임 폴링 오류:', error)
+      }
+    }, 200) // 200ms마다 확인 (약 5fps)
+
+    return () => clearInterval(pollVideoFrame)
+  }, [deviceId])
+
+  if (!phoneVideoFrame) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4 text-xl">
+            핸드폰 카메라 연결 대기 중...
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-full h-full relative">
+      <img
+        src={phoneVideoFrame}
+        alt="핸드폰 카메라 화면"
+        className="w-full h-full object-contain"
+      />
+    </div>
+  )
+}
+
 export default function BarcodeScanPage() {
   const { cartItems, yoloCount, addProduct, decreaseQuantity, getTotalCount, setScanResult, scanResult, deviceId } = useStore()
   const [isScanning, setIsScanning] = useState(false)
@@ -166,19 +210,8 @@ export default function BarcodeScanPage() {
             }}
           >
             {deviceId ? (
-              // 핸드폰에서 스캔하는 경우
-              <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                <div className="text-center">
-                  <p className="text-gray-600 mb-4 text-xl">
-                    핸드폰에서 바코드를 스캔해주세요
-                  </p>
-                  {phoneBarcode && (
-                    <p className="text-green-600 font-semibold">
-                      최근 스캔: {phoneBarcode}
-                    </p>
-                  )}
-                </div>
-              </div>
+              // 핸드폰에서 스캔하는 경우 - 핸드폰 카메라 화면 표시
+              <PhoneVideoStream deviceId={deviceId} />
             ) : (
               // 로컬 카메라로 스캔하는 경우
               <>

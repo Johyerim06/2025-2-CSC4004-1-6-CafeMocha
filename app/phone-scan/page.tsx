@@ -25,6 +25,8 @@ export default function PhoneScanPage() {
   }, [])
 
   const startScanning = async (deviceId: string) => {
+    let videoInterval: NodeJS.Timeout | null = null
+    
     try {
       // 카메라 권한 요청
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -36,6 +38,37 @@ export default function PhoneScanPage() {
 
       videoRef.current.srcObject = stream
       await videoRef.current.play()
+
+      // 비디오 프레임을 주기적으로 웹으로 전송
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      const sendVideoFrame = () => {
+        if (!videoRef.current || !ctx) return
+        
+        canvas.width = videoRef.current.videoWidth
+        canvas.height = videoRef.current.videoHeight
+        ctx.drawImage(videoRef.current, 0, 0)
+        
+        const imageData = canvas.toDataURL('image/jpeg', 0.7)
+        
+        // 웹으로 비디오 프레임 전송
+        const baseUrl = typeof window !== 'undefined' 
+          ? window.location.origin 
+          : ''
+        fetch(`${baseUrl}/api/phone/video`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            deviceId,
+            imageData,
+          }),
+        }).catch(error => {
+          console.error('비디오 프레임 전송 오류:', error)
+        })
+      }
+
+      // 200ms마다 비디오 프레임 전송 (약 5fps)
+      videoInterval = setInterval(sendVideoFrame, 200)
 
       // 바코드 스캔 설정
       const hints = new Map()
@@ -88,6 +121,9 @@ export default function PhoneScanPage() {
       )
 
       return () => {
+        if (videoInterval) {
+          clearInterval(videoInterval)
+        }
         try {
           // reader를 통해 스캔 중지
           if (readerRef.current) {
