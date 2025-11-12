@@ -15,7 +15,9 @@ export default function PhoneScanPage() {
   const [scannedText, setScannedText] = useState('')
   const [error, setError] = useState('')
   const [deviceId, setDeviceId] = useState<string | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
   const readerRef = useRef<BrowserMultiFormatReader | null>(null)
+  const cleanupRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     // URL에서 deviceId 가져오기 (QR 코드에서 전달받음)
@@ -28,20 +30,27 @@ export default function PhoneScanPage() {
       return
     }
 
-    let cleanup: (() => void) | null = null
+    // 이전 cleanup 실행
+    if (cleanupRef.current) {
+      cleanupRef.current()
+      cleanupRef.current = null
+    }
+    
+    setError('') // 에러 초기화
     
     startScanning(id).then((cleanupFn) => {
-      cleanup = cleanupFn
+      cleanupRef.current = cleanupFn
     }).catch((e) => {
       setError(e?.message ?? String(e))
     })
 
     return () => {
-      if (cleanup) {
-        cleanup()
+      if (cleanupRef.current) {
+        cleanupRef.current()
+        cleanupRef.current = null
       }
     }
-  }, [])
+  }, [retryKey]) // retryKey가 변경되면 다시 실행
 
   const startScanning = async (deviceId: string): Promise<() => void> => {
     let videoInterval: NodeJS.Timeout | null = null
@@ -51,15 +60,32 @@ export default function PhoneScanPage() {
     let stopIcePolling: (() => void) | null = null
     
     try {
-      // 카메라 권한 요청
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+      // 카메라 권한 확인
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('이 브라우저는 카메라 접근을 지원하지 않습니다. HTTPS 또는 localhost에서 실행해주세요.')
+      }
+
+      // 카메라 권한 요청 (더 유연한 설정)
+      let constraints: MediaStreamConstraints = {
+        video: {
+          facingMode: 'environment', // 후면 카메라 우선
         },
         audio: false,
-      })
+      }
+
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints)
+      } catch (error: any) {
+        // 후면 카메라 실패 시 전면 카메라로 시도
+        console.warn('후면 카메라 접근 실패, 전면 카메라로 시도:', error.message)
+        constraints = {
+          video: {
+            facingMode: 'user', // 전면 카메라
+          },
+          audio: false,
+        }
+        stream = await navigator.mediaDevices.getUserMedia(constraints)
+      }
 
       if (!videoRef.current) {
         stream.getTracks().forEach((track) => track.stop())
@@ -295,7 +321,23 @@ export default function PhoneScanPage() {
         }
       }
     } catch (e: any) {
-      setError(e?.message ?? String(e))
+      console.error('카메라 접근 오류:', e)
+      
+      let errorMessage = '카메라 접근에 실패했습니다.'
+      
+      if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+        errorMessage = '카메라 권한이 거부되었습니다. 브라우저 설정에서 카메라 권한을 허용해주세요.'
+      } else if (e.name === 'NotFoundError' || e.name === 'DevicesNotFoundError') {
+        errorMessage = '카메라를 찾을 수 없습니다. 카메라가 연결되어 있는지 확인해주세요.'
+      } else if (e.name === 'NotReadableError' || e.name === 'TrackStartError') {
+        errorMessage = '카메라가 다른 앱에서 사용 중이거나 접근할 수 없습니다.'
+      } else if (e.name === 'OverconstrainedError' || e.name === 'ConstraintNotSatisfiedError') {
+        errorMessage = '카메라 설정을 만족할 수 없습니다. 다른 카메라를 시도해주세요.'
+      } else if (e.message) {
+        errorMessage = e.message
+      }
+      
+      setError(errorMessage)
       // 에러 발생 시 빈 cleanup 함수 반환
       return () => {}
     }
@@ -324,7 +366,20 @@ export default function PhoneScanPage() {
             <div>
               <b>스캔 결과:</b> {scannedText || '대기 중...'}
             </div>
-            {error && <div className="text-red-600 mt-2">오류: {error}</div>}
+            {error && (
+              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="text-red-800 font-semibold mb-2">⚠️ 카메라 오류</div>
+                <div className="text-red-700 text-sm mb-3">{error}</div>
+                <button
+                  onClick={() => {
+                    setRetryKey(prev => prev + 1) // retryKey 변경으로 useEffect 재실행
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-semibold"
+                >
+                  다시 시도
+                </button>
+              </div>
+            )}
             {deviceId && (
               <div className="text-xs text-gray-500 mt-2">
                 Device ID: {deviceId}
