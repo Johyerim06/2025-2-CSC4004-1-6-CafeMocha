@@ -17,7 +17,8 @@ export default function YOLOScanPage() {
   const { 
     setYOLOCount, 
     isConnected, 
-    deviceId
+    deviceId,
+    setConnected
   } = useStore()
   const [isCapturing, setIsCapturing] = useState(false)
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
@@ -238,10 +239,31 @@ export default function YOLOScanPage() {
 
   // WebRTC 연결 함수 (외부에서 호출 가능하도록)
   const reconnectWebRTC = async () => {
-    if (!deviceId) {
+    // deviceId가 없으면 store에서 가져오기 시도
+    const currentDeviceId = deviceId || (typeof window !== 'undefined' ? (() => {
+      try {
+        const stored = localStorage.getItem('smart-cart-storage')
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          return parsed.state?.deviceId || null
+        }
+      } catch (error) {
+        console.error('LocalStorage 읽기 오류:', error)
+      }
+      return null
+    })() : null)
+    
+    if (!currentDeviceId) {
       console.warn('deviceId가 없어 WebRTC 재연결 불가')
       return
     }
+    
+    // deviceId가 store와 다르면 업데이트
+    if (currentDeviceId !== deviceId) {
+      setConnected(currentDeviceId)
+    }
+    
+    const targetDeviceId = currentDeviceId
 
     // 기존 PeerConnection 정리
     if (pcRef.current) {
@@ -253,11 +275,11 @@ export default function YOLOScanPage() {
     let stopIcePolling: (() => void) | null = null
 
     try {
-      console.log('WebRTC 재연결 시작...', { deviceId })
+      console.log('WebRTC 재연결 시작...', { deviceId: targetDeviceId })
       
       // WebRTC PeerConnection 생성
       const pc = await createWebRTCPeerConnection(
-        deviceId,
+        targetDeviceId,
         (stream) => {
           console.log('WebRTC 스트림 재연결 성공!', stream)
           // 로컬 state에만 저장 (Zustand에는 저장하지 않음)
@@ -278,23 +300,23 @@ export default function YOLOScanPage() {
           assignStream()
         },
         async (candidate) => {
-          await sendIceCandidateToServer(deviceId, candidate)
+          await sendIceCandidateToServer(targetDeviceId, candidate)
         }
       )
 
       pcRef.current = pc
 
       // Offer 생성 및 전송
-      const offer = await createOffer(deviceId, pc)
-      await sendOfferToServer(deviceId, offer)
+      const offer = await createOffer(targetDeviceId, pc)
+      await sendOfferToServer(targetDeviceId, offer)
 
       // Answer 폴링 시작
-      stopAnswerPolling = await pollForAnswer(deviceId, pc, async (answer) => {
+      stopAnswerPolling = await pollForAnswer(targetDeviceId, pc, async (answer) => {
         console.log('WebRTC Answer 수신 완료 (재연결)')
       })
 
       // ICE Candidate 폴링 시작
-      stopIcePolling = await pollForIceCandidates(deviceId, pc, 'phone')
+      stopIcePolling = await pollForIceCandidates(targetDeviceId, pc, 'phone')
     } catch (error) {
       console.error('WebRTC 재연결 실패:', error)
       // 재연결 실패 시 Base64 폴백
@@ -333,7 +355,29 @@ export default function YOLOScanPage() {
 
   // WebRTC 연결 시작 (QR 연동된 경우)
   useEffect(() => {
-    if (!isConnected || !deviceId) return
+    // LocalStorage에서 복구된 연결 정보 확인 및 자동 재연결
+    if (!isConnected || !deviceId) {
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('smart-cart-storage')
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored)
+            if (parsed.state?.deviceId && parsed.state?.isConnected) {
+              console.log('LocalStorage에서 연결 정보 복구됨:', parsed.state.deviceId)
+              // store 업데이트
+              setConnected(parsed.state.deviceId)
+              // 약간의 지연 후 재연결 (Zustand state가 먼저 복구되도록)
+              setTimeout(() => {
+                reconnectWebRTC()
+              }, 1000)
+            }
+          } catch (error) {
+            console.error('LocalStorage 파싱 오류:', error)
+          }
+        }
+      }
+      return
+    }
 
     let stopAnswerPolling: (() => void) | null = null
     let stopIcePolling: (() => void) | null = null
@@ -551,7 +595,7 @@ export default function YOLOScanPage() {
 
         {/* Form 영역 (카메라/이미지 표시) */}
         <div 
-          className="w-full max-w-[900px] rounded-[20px] overflow-hidden"
+          className="w-full max-w-[600px] rounded-[20px] overflow-hidden mx-auto"
           style={{ 
             backgroundColor: '#ffffff',
             minHeight: '600px'

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import { AppState, CartItem, Product } from '@/types'
 
 interface Store extends AppState {
@@ -13,13 +14,15 @@ interface Store extends AppState {
   getTotalCount: () => number
 }
 
-export const useStore = create<Store>((set, get) => ({
-  // Initial state
-  isConnected: false,
-  deviceId: null,
-  cartItems: [],
-  yoloCount: null,
-  scanResult: null,
+export const useStore = create<Store>()(
+  persist(
+    (set, get) => ({
+      // Initial state
+      isConnected: false,
+      deviceId: null,
+      cartItems: [],
+      yoloCount: null,
+      scanResult: null,
 
   // Actions
   setConnected: (deviceId: string) =>
@@ -95,5 +98,16 @@ export const useStore = create<Store>((set, get) => ({
     const state = get()
     return state.cartItems.reduce((sum, item) => sum + item.quantity, 0)
   },
-}))
+    }),
+    {
+      name: 'smart-cart-storage', // LocalStorage 키 이름
+      partialize: (state) => ({
+        // 새로고침 후에도 유지할 상태만 저장
+        isConnected: state.isConnected,
+        deviceId: state.deviceId,
+        // cartItems, yoloCount, scanResult는 세션별로 관리하므로 저장하지 않음
+      }),
+    }
+  )
+)
 
