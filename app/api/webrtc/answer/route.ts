@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
+import { redisUtils } from '@/lib/redis'
 
-// WebRTC Answer를 저장하는 간단한 메모리 스토어
-const answers = new Map<string, { answer: RTCSessionDescriptionInit; timestamp: number }>()
+const ANSWER_TTL = 5 * 60 // 5분 (초 단위)
 
 export async function POST(request: Request) {
   try {
@@ -14,11 +14,13 @@ export async function POST(request: Request) {
       )
     }
 
-    // Answer 저장
-    answers.set(deviceId, {
+    // Redis에 Answer 저장 (5분 TTL)
+    const answerData = {
       answer: answer as RTCSessionDescriptionInit,
       timestamp: Date.now(),
-    })
+    }
+    
+    await redisUtils.setWithTTL(`webrtc:answer:${deviceId}`, answerData, ANSWER_TTL)
 
     return NextResponse.json({
       success: true,
@@ -47,27 +49,37 @@ export async function GET(request: Request) {
     )
   }
 
-  const answerData = answers.get(deviceId)
+  try {
+    const answerData = await redisUtils.get<{ answer: RTCSessionDescriptionInit; timestamp: number }>(
+      `webrtc:answer:${deviceId}`
+    )
 
-  if (!answerData) {
+    if (!answerData) {
+      return NextResponse.json(
+        { success: false, message: 'Answer를 찾을 수 없습니다.' },
+        { status: 404 }
+      )
+    }
+
+    // TTL은 Redis가 자동으로 처리하지만, 타임스탬프도 확인
+    if (Date.now() - answerData.timestamp > ANSWER_TTL * 1000) {
+      await redisUtils.delete(`webrtc:answer:${deviceId}`)
+      return NextResponse.json(
+        { success: false, message: 'Answer가 만료되었습니다.' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      answer: answerData.answer,
+    })
+  } catch (error) {
+    console.error('Answer 조회 오류:', error)
     return NextResponse.json(
-      { success: false, message: 'Answer를 찾을 수 없습니다.' },
-      { status: 404 }
+      { success: false, message: 'Answer 조회 중 오류가 발생했습니다.' },
+      { status: 500 }
     )
   }
-
-  // 5분 이상 지난 Answer는 삭제
-  if (Date.now() - answerData.timestamp > 5 * 60 * 1000) {
-    answers.delete(deviceId)
-    return NextResponse.json(
-      { success: false, message: 'Answer가 만료되었습니다.' },
-      { status: 404 }
-    )
-  }
-
-  return NextResponse.json({
-    success: true,
-    answer: answerData.answer,
-  })
 }
 

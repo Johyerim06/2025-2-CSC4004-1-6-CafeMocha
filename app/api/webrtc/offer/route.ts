@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
+import { redisUtils } from '@/lib/redis'
 
-// WebRTC Offer를 저장하는 간단한 메모리 스토어 (실제로는 Redis 등 사용 권장)
-const offers = new Map<string, { offer: RTCSessionDescriptionInit; timestamp: number }>()
+const OFFER_TTL = 5 * 60 // 5분 (초 단위)
 
 export async function POST(request: Request) {
   try {
@@ -14,11 +14,13 @@ export async function POST(request: Request) {
       )
     }
 
-    // Offer 저장 (5분 후 자동 삭제)
-    offers.set(deviceId, {
+    // Redis에 Offer 저장 (5분 TTL)
+    const offerData = {
       offer: offer as RTCSessionDescriptionInit,
       timestamp: Date.now(),
-    })
+    }
+    
+    await redisUtils.setWithTTL(`webrtc:offer:${deviceId}`, offerData, OFFER_TTL)
 
     return NextResponse.json({
       success: true,
@@ -47,27 +49,37 @@ export async function GET(request: Request) {
     )
   }
 
-  const offerData = offers.get(deviceId)
+  try {
+    const offerData = await redisUtils.get<{ offer: RTCSessionDescriptionInit; timestamp: number }>(
+      `webrtc:offer:${deviceId}`
+    )
 
-  if (!offerData) {
+    if (!offerData) {
+      return NextResponse.json(
+        { success: false, message: 'Offer를 찾을 수 없습니다.' },
+        { status: 404 }
+      )
+    }
+
+    // TTL은 Redis가 자동으로 처리하지만, 타임스탬프도 확인
+    if (Date.now() - offerData.timestamp > OFFER_TTL * 1000) {
+      await redisUtils.delete(`webrtc:offer:${deviceId}`)
+      return NextResponse.json(
+        { success: false, message: 'Offer가 만료되었습니다.' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      offer: offerData.offer,
+    })
+  } catch (error) {
+    console.error('Offer 조회 오류:', error)
     return NextResponse.json(
-      { success: false, message: 'Offer를 찾을 수 없습니다.' },
-      { status: 404 }
+      { success: false, message: 'Offer 조회 중 오류가 발생했습니다.' },
+      { status: 500 }
     )
   }
-
-  // 5분 이상 지난 Offer는 삭제
-  if (Date.now() - offerData.timestamp > 5 * 60 * 1000) {
-    offers.delete(deviceId)
-    return NextResponse.json(
-      { success: false, message: 'Offer가 만료되었습니다.' },
-      { status: 404 }
-    )
-  }
-
-  return NextResponse.json({
-    success: true,
-    offer: offerData.offer,
-  })
 }
 
