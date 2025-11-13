@@ -2,8 +2,6 @@ import { create } from 'zustand'
 import { AppState, CartItem, Product } from '@/types'
 
 interface Store extends AppState {
-  // WebRTC 연결 상태
-  webrtcStream: MediaStream | null
   // Actions
   setConnected: (deviceId: string) => void
   addProduct: (product: Product) => void
@@ -11,7 +9,6 @@ interface Store extends AppState {
   decreaseQuantity: (barcode: string) => void
   setYOLOCount: (count: number) => void
   setScanResult: (result: 'success' | 'error' | null) => void
-  setWebrtcStream: (stream: MediaStream | null) => void
   resetCart: () => void
   getTotalCount: () => number
 }
@@ -23,7 +20,6 @@ export const useStore = create<Store>((set, get) => ({
   cartItems: [],
   yoloCount: null,
   scanResult: null,
-  webrtcStream: null,
 
   // Actions
   setConnected: (deviceId: string) =>
@@ -87,9 +83,6 @@ export const useStore = create<Store>((set, get) => ({
 
   setScanResult: (result: 'success' | 'error' | null) =>
     set({ scanResult: result }),
-
-  setWebrtcStream: (stream: MediaStream | null) =>
-    set({ webrtcStream: stream }),
 
   resetCart: () =>
     set({

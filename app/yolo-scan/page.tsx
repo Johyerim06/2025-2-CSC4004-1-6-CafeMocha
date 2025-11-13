@@ -17,18 +17,15 @@ export default function YOLOScanPage() {
   const { 
     setYOLOCount, 
     isConnected, 
-    deviceId, 
-    webrtcStream: storeWebrtcStream,
-    setWebrtcStream 
+    deviceId
   } = useStore()
   const [isCapturing, setIsCapturing] = useState(false)
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [detectedCount, setDetectedCount] = useState<number | null>(null)
   const [phoneVideoFrame, setPhoneVideoFrame] = useState<string | null>(null)
+  const [webrtcStream, setWebrtcStream] = useState<MediaStream | null>(null)
   const [isRotated, setIsRotated] = useState(false) // 가로 모드 회전 상태
-  // store에서 webrtcStream을 가져오지만, 로컬 state도 유지 (렌더링 최적화)
-  const [localWebrtcStream, setLocalWebrtcStream] = useState<MediaStream | null>(storeWebrtcStream)
   const videoRef = useRef<HTMLVideoElement>(null)
   const webrtcVideoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -58,8 +55,7 @@ export default function YOLOScanPage() {
     let imageData: string | null = null
 
     // WebRTC 스트림이 있으면 그것을 사용 (최우선)
-    const currentStream = localWebrtcStream || storeWebrtcStream
-    if (currentStream && webrtcVideoRef.current && canvasRef.current) {
+    if (webrtcStream && webrtcVideoRef.current && canvasRef.current) {
       const video = webrtcVideoRef.current
       const canvas = canvasRef.current
       const ctx = canvas.getContext('2d')
@@ -223,8 +219,7 @@ export default function YOLOScanPage() {
           // 핸드폰 연결이 끊어졌을 때는 자동으로 로컬 카메라를 시작하지 않음
           // 사용자가 명시적으로 "로컬 카메라 사용" 버튼을 눌러야 함
           if (retryCount >= maxRetries && !phoneVideoFrame && !isCapturing) {
-            const currentStream = localWebrtcStream || storeWebrtcStream
-            if (!currentStream) {
+            if (!webrtcStream) {
               console.log('핸드폰 비디오를 받지 못함 - 사용자가 로컬 카메라 버튼을 눌러야 함')
             }
           }
@@ -234,8 +229,7 @@ export default function YOLOScanPage() {
         console.error('비디오 프레임 폴링 오류:', error)
         // 핸드폰 연결이 끊어졌을 때는 자동으로 로컬 카메라를 시작하지 않음
         if (retryCount >= maxRetries && !phoneVideoFrame && !isCapturing) {
-          const currentStream = localWebrtcStream || storeWebrtcStream
-          if (!currentStream) {
+          if (!webrtcStream) {
             console.log('핸드폰 비디오 연결 실패 - 사용자가 로컬 카메라 버튼을 눌러야 함')
           }
         }
@@ -267,9 +261,8 @@ export default function YOLOScanPage() {
         deviceId,
         (stream) => {
           console.log('WebRTC 스트림 재연결 성공!', stream)
-          // Store에 WebRTC 스트림 저장
+          // 로컬 state에만 저장 (Zustand에는 저장하지 않음)
           setWebrtcStream(stream)
-          setLocalWebrtcStream(stream)
           
           // 비디오 요소에 스트림 할당
           const assignStream = () => {
@@ -312,52 +305,30 @@ export default function YOLOScanPage() {
 
   // 다시 촬영
   const retakePhoto = () => {
-    // Store에서 저장된 WebRTC 스트림 확인
-    const savedStream = storeWebrtcStream || localWebrtcStream
-    
-    console.log('다시 촬영 버튼 클릭 - 핸드폰 카메라 연결 상태 확인:', {
+    console.log('다시 촬영 버튼 클릭:', {
       isConnected,
-      deviceId,
-      hasWebRTC: !!savedStream,
-      hasBase64: !!phoneVideoFrame,
-      storeHasStream: !!storeWebrtcStream,
-      localHasStream: !!localWebrtcStream,
-      streamActive: savedStream?.active
+      deviceId
     })
+    
     setCapturedImage(null)
     setDetectedCount(null)
     setIsProcessing(false)
     
+    // 로컬 카메라 중지 (혹시 켜져 있다면)
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track: MediaStreamTrack) => track.stop())
+      streamRef.current = null
+      setIsCapturing(false)
+    }
+    
     // 핸드폰 연결 정보가 있으면 재연결 시도
     if (isConnected && deviceId) {
       console.log('저장된 핸드폰 연결 정보로 재연결 시도:', deviceId)
-      
-      // 로컬 카메라 중지 (혹시 켜져 있다면)
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track: MediaStreamTrack) => track.stop())
-        streamRef.current = null
-        setIsCapturing(false)
-      }
-      
-      // WebRTC 스트림이 있고 활성화되어 있으면 재사용
-      if (savedStream && savedStream.active) {
-        console.log('저장된 WebRTC 스트림이 활성화되어 있음 - 재사용')
-        if (webrtcVideoRef.current) {
-          webrtcVideoRef.current.srcObject = savedStream
-          webrtcVideoRef.current.play().catch((error) => {
-            console.error('비디오 재생 오류:', error)
-          })
-        }
-        setLocalWebrtcStream(savedStream)
-      } else {
-        // WebRTC 스트림이 없거나 비활성화되어 있으면 재연결 시도
-        console.log('WebRTC 스트림이 없거나 비활성화됨 - 재연결 시도')
-        reconnectWebRTC()
-      }
-    } else if (!isConnected || !deviceId) {
-      // 연결 정보가 없으면 로컬 카메라 시작
-      console.log('핸드폰 연결 정보가 없어 로컬 카메라 시작')
-      startCamera()
+      reconnectWebRTC()
+    } else {
+      // 연결 정보가 없으면 QR 스캔 페이지로 이동
+      console.log('핸드폰 연결 정보가 없어 QR 스캔 페이지로 이동')
+      router.push('/qr-scan')
     }
   }
 
@@ -450,8 +421,7 @@ export default function YOLOScanPage() {
         
         // WebRTC 연결 타임아웃 체크 (10초 후에도 연결되지 않으면 Base64 폴백)
         setTimeout(() => {
-          const currentStream = localWebrtcStream || storeWebrtcStream
-          if (!currentStream && !phoneVideoFrame) {
+          if (!webrtcStream && !phoneVideoFrame) {
             console.log('WebRTC 연결 타임아웃 (10초), Base64 폴백 시작')
             startBase64Polling()
           }
@@ -481,29 +451,19 @@ export default function YOLOScanPage() {
     }
   }, [isConnected, deviceId])
 
-  // Store의 WebRTC 스트림이 변경될 때 로컬 state 동기화
-  useEffect(() => {
-    if (storeWebrtcStream && storeWebrtcStream !== localWebrtcStream) {
-      console.log('Store에서 WebRTC 스트림 동기화:', storeWebrtcStream)
-      setLocalWebrtcStream(storeWebrtcStream)
-    }
-  }, [storeWebrtcStream])
-
   // WebRTC 스트림이 변경될 때 비디오 요소에 할당
   useEffect(() => {
-    const stream = localWebrtcStream || storeWebrtcStream
-    if (stream && webrtcVideoRef.current) {
+    if (webrtcStream && webrtcVideoRef.current) {
       console.log('WebRTC 스트림 변경 감지 - 비디오 요소에 할당:', {
-        streamId: stream.id,
-        streamActive: stream.active,
+        streamId: webrtcStream.id,
+        streamActive: webrtcStream.active,
         videoElement: !!webrtcVideoRef.current,
-        hasSrcObject: !!webrtcVideoRef.current.srcObject,
-        currentSrcObjectId: webrtcVideoRef.current.srcObject instanceof MediaStream ? webrtcVideoRef.current.srcObject.id : 'N/A'
+        hasSrcObject: !!webrtcVideoRef.current.srcObject
       })
       
       // 기존 스트림과 다를 때만 할당
-      if (webrtcVideoRef.current.srcObject !== stream) {
-        webrtcVideoRef.current.srcObject = stream
+      if (webrtcVideoRef.current.srcObject !== webrtcStream) {
+        webrtcVideoRef.current.srcObject = webrtcStream
         
         // 재생 시도
         const playPromise = webrtcVideoRef.current.play()
@@ -526,7 +486,7 @@ export default function YOLOScanPage() {
         }
       }
     }
-  }, [localWebrtcStream, storeWebrtcStream])
+  }, [webrtcStream])
 
   // QR 연동 상태 확인 및 카메라 시작 (핸드폰 비디오가 없을 때만)
   useEffect(() => {
@@ -559,7 +519,7 @@ export default function YOLOScanPage() {
           {!capturedImage && (
             <button
               onClick={capturePhoto}
-              disabled={isProcessing || (!isCapturing && !(localWebrtcStream || storeWebrtcStream) && !phoneVideoFrame)}
+              disabled={isProcessing || (!isCapturing && !webrtcStream && !phoneVideoFrame)}
               className="flex items-center gap-2 px-6 py-4 rounded-[10px] transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ 
                 backgroundColor: '#18181b',
@@ -617,11 +577,11 @@ export default function YOLOScanPage() {
           ) : !capturedImage ? (
             // 카메라 미리보기 (QR 연동된 경우)
             <div className="relative w-full h-[600px] bg-black flex items-center justify-center">
-              {(localWebrtcStream || storeWebrtcStream) ? (
+              {webrtcStream ? (
                 // WebRTC 스트림 표시 (최우선)
                 <div className="w-full h-full relative overflow-hidden">
                   <video
-                    key={`webrtc-${(localWebrtcStream || storeWebrtcStream)?.id}`}
+                    key={`webrtc-${webrtcStream.id}`}
                     ref={webrtcVideoRef}
                     autoPlay
                     playsInline
@@ -744,7 +704,7 @@ export default function YOLOScanPage() {
                       <div className="text-center">
                         <p className="text-white mb-2 text-lg">핸드폰 카메라 연결 대기 중...</p>
                         <p className="text-white mb-4 text-sm opacity-75">
-                          WebRTC: {(localWebrtcStream || storeWebrtcStream) ? '✅ 연결됨' : '❌ 대기 중'} | 
+                          WebRTC: {webrtcStream ? '✅ 연결됨' : '❌ 대기 중'} | 
                           Base64: {phoneVideoFrame ? '✅ 수신됨' : '❌ 대기 중'}
                         </p>
                         <p className="text-white mb-4 text-xs opacity-50">
