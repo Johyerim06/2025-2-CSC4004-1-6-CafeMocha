@@ -312,7 +312,11 @@ export default function YOLOScanPage() {
         const pc = await createWebRTCPeerConnection(
           deviceId,
           (stream) => {
-            console.log('WebRTC 스트림 수신 성공!', stream)
+            console.log('WebRTC 스트림 수신 성공!', stream, {
+              id: stream.id,
+              active: stream.active,
+              tracks: stream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState }))
+            })
             // Store에 WebRTC 스트림 저장
             setWebrtcStream(stream)
             setLocalWebrtcStream(stream)
@@ -320,13 +324,35 @@ export default function YOLOScanPage() {
             // 비디오 요소에 스트림 할당 (즉시 시도)
             const assignStream = () => {
               if (webrtcVideoRef.current) {
-                console.log('비디오 요소에 스트림 할당:', stream)
-                webrtcVideoRef.current.srcObject = stream
-                webrtcVideoRef.current.play().catch((error) => {
-                  console.error('비디오 재생 오류:', error)
+                console.log('비디오 요소에 WebRTC 스트림 할당 시도:', {
+                  videoElement: !!webrtcVideoRef.current,
+                  streamId: stream.id,
+                  streamActive: stream.active
                 })
+                webrtcVideoRef.current.srcObject = stream
+                
+                // 강제로 재생 시도
+                const playPromise = webrtcVideoRef.current.play()
+                if (playPromise !== undefined) {
+                  playPromise
+                    .then(() => {
+                      console.log('✅ WebRTC 비디오 재생 성공')
+                    })
+                    .catch((error) => {
+                      console.error('❌ WebRTC 비디오 재생 오류:', error)
+                      // 재생 실패 시 다시 시도
+                      setTimeout(() => {
+                        if (webrtcVideoRef.current && webrtcVideoRef.current.srcObject === stream) {
+                          webrtcVideoRef.current.play().catch((err) => {
+                            console.error('재시도 후 재생 오류:', err)
+                          })
+                        }
+                      }, 500)
+                    })
+                }
               } else {
                 // 비디오 요소가 아직 준비되지 않았으면 잠시 후 재시도
+                console.log('비디오 요소가 아직 준비되지 않음, 100ms 후 재시도')
                 setTimeout(assignStream, 100)
               }
             }
@@ -396,11 +422,37 @@ export default function YOLOScanPage() {
   useEffect(() => {
     const stream = localWebrtcStream || storeWebrtcStream
     if (stream && webrtcVideoRef.current) {
-      console.log('WebRTC 스트림을 비디오 요소에 할당:', stream)
-      webrtcVideoRef.current.srcObject = stream
-      webrtcVideoRef.current.play().catch((error) => {
-        console.error('비디오 재생 오류:', error)
+      console.log('WebRTC 스트림 변경 감지 - 비디오 요소에 할당:', {
+        streamId: stream.id,
+        streamActive: stream.active,
+        videoElement: !!webrtcVideoRef.current,
+        currentSrcObject: webrtcVideoRef.current.srcObject?.id
       })
+      
+      // 기존 스트림과 다를 때만 할당
+      if (webrtcVideoRef.current.srcObject !== stream) {
+        webrtcVideoRef.current.srcObject = stream
+        
+        // 재생 시도
+        const playPromise = webrtcVideoRef.current.play()
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              console.log('✅ WebRTC 비디오 재생 성공 (useEffect)')
+            })
+            .catch((error) => {
+              console.error('❌ WebRTC 비디오 재생 오류 (useEffect):', error)
+            })
+        }
+      } else {
+        // 같은 스트림이면 재생만 확인
+        if (webrtcVideoRef.current.paused) {
+          console.log('비디오가 일시정지 상태, 재생 시도')
+          webrtcVideoRef.current.play().catch((error) => {
+            console.error('재생 오류:', error)
+          })
+        }
+      }
     }
   }, [localWebrtcStream, storeWebrtcStream])
 
@@ -519,25 +571,45 @@ export default function YOLOScanPage() {
                       })
                     }}
                     onLoadedMetadata={() => {
-                      console.log('비디오 메타데이터 로드 완료', {
+                      console.log('✅ 비디오 메타데이터 로드 완료', {
                         videoWidth: webrtcVideoRef.current?.videoWidth,
                         videoHeight: webrtcVideoRef.current?.videoHeight,
-                        readyState: webrtcVideoRef.current?.readyState
+                        readyState: webrtcVideoRef.current?.readyState,
+                        paused: webrtcVideoRef.current?.paused,
+                        srcObject: !!webrtcVideoRef.current?.srcObject
                       })
-                      if (webrtcVideoRef.current) {
+                      if (webrtcVideoRef.current && webrtcVideoRef.current.paused) {
                         webrtcVideoRef.current.play().catch((error) => {
                           console.error('비디오 재생 오류:', error)
                         })
                       }
                     }}
                     onCanPlay={() => {
-                      console.log('비디오 재생 가능')
+                      console.log('✅ 비디오 재생 가능')
+                      if (webrtcVideoRef.current && webrtcVideoRef.current.paused) {
+                        webrtcVideoRef.current.play().catch((error) => {
+                          console.error('canPlay 후 재생 오류:', error)
+                        })
+                      }
                     }}
                     onPlay={() => {
-                      console.log('비디오 재생 시작')
+                      console.log('✅ 비디오 재생 시작')
+                    }}
+                    onPlaying={() => {
+                      console.log('✅ 비디오 재생 중')
+                    }}
+                    onPause={() => {
+                      console.warn('⚠️ 비디오 일시정지됨')
+                    }}
+                    onWaiting={() => {
+                      console.warn('⚠️ 비디오 버퍼링 대기 중')
                     }}
                     onError={(e) => {
-                      console.error('비디오 오류:', e)
+                      console.error('❌ 비디오 오류:', e, {
+                        error: webrtcVideoRef.current?.error,
+                        networkState: webrtcVideoRef.current?.networkState,
+                        readyState: webrtcVideoRef.current?.readyState
+                      })
                     }}
                   />
                   <div className="absolute top-2 left-2 bg-green-500 text-white px-2 py-1 rounded text-xs z-10">
