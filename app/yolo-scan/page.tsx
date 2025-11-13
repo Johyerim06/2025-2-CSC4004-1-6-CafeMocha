@@ -243,6 +243,73 @@ export default function YOLOScanPage() {
     }, 200)
   }
 
+  // WebRTC 연결 함수 (외부에서 호출 가능하도록)
+  const reconnectWebRTC = async () => {
+    if (!deviceId) {
+      console.warn('deviceId가 없어 WebRTC 재연결 불가')
+      return
+    }
+
+    // 기존 PeerConnection 정리
+    if (pcRef.current) {
+      pcRef.current.close()
+      pcRef.current = null
+    }
+
+    let stopAnswerPolling: (() => void) | null = null
+    let stopIcePolling: (() => void) | null = null
+
+    try {
+      console.log('WebRTC 재연결 시작...', { deviceId })
+      
+      // WebRTC PeerConnection 생성
+      const pc = await createWebRTCPeerConnection(
+        deviceId,
+        (stream) => {
+          console.log('WebRTC 스트림 재연결 성공!', stream)
+          // Store에 WebRTC 스트림 저장
+          setWebrtcStream(stream)
+          setLocalWebrtcStream(stream)
+          
+          // 비디오 요소에 스트림 할당
+          const assignStream = () => {
+            if (webrtcVideoRef.current) {
+              console.log('비디오 요소에 WebRTC 스트림 재할당')
+              webrtcVideoRef.current.srcObject = stream
+              webrtcVideoRef.current.play().catch((error) => {
+                console.error('비디오 재생 오류:', error)
+              })
+            } else {
+              setTimeout(assignStream, 100)
+            }
+          }
+          assignStream()
+        },
+        async (candidate) => {
+          await sendIceCandidateToServer(deviceId, candidate)
+        }
+      )
+
+      pcRef.current = pc
+
+      // Offer 생성 및 전송
+      const offer = await createOffer(deviceId, pc)
+      await sendOfferToServer(deviceId, offer)
+
+      // Answer 폴링 시작
+      stopAnswerPolling = await pollForAnswer(deviceId, pc, async (answer) => {
+        console.log('WebRTC Answer 수신 완료 (재연결)')
+      })
+
+      // ICE Candidate 폴링 시작
+      stopIcePolling = await pollForIceCandidates(deviceId, pc, 'phone')
+    } catch (error) {
+      console.error('WebRTC 재연결 실패:', error)
+      // 재연결 실패 시 Base64 폴백
+      startBase64Polling()
+    }
+  }
+
   // 다시 촬영
   const retakePhoto = () => {
     // Store에서 저장된 WebRTC 스트림 확인
@@ -254,46 +321,43 @@ export default function YOLOScanPage() {
       hasWebRTC: !!savedStream,
       hasBase64: !!phoneVideoFrame,
       storeHasStream: !!storeWebrtcStream,
-      localHasStream: !!localWebrtcStream
+      localHasStream: !!localWebrtcStream,
+      streamActive: savedStream?.active
     })
     setCapturedImage(null)
     setDetectedCount(null)
     setIsProcessing(false)
     
-    // 핸드폰 카메라가 연결되어 있으면 로컬 카메라를 시작하지 않음
-    // WebRTC나 Base64 비디오가 있으면 그대로 사용
-    if (!isConnected || (!savedStream && !phoneVideoFrame)) {
-      console.log('핸드폰 카메라 연결이 없어 로컬 카메라 시작')
-      startCamera()
-    } else {
-      console.log('핸드폰 카메라 연결 유지됨 - 로컬 카메라 시작하지 않음')
-      // 핸드폰 카메라 연결이 있으면 로컬 카메라 중지 (혹시 켜져 있다면)
+    // 핸드폰 연결 정보가 있으면 재연결 시도
+    if (isConnected && deviceId) {
+      console.log('저장된 핸드폰 연결 정보로 재연결 시도:', deviceId)
+      
+      // 로컬 카메라 중지 (혹시 켜져 있다면)
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track: MediaStreamTrack) => track.stop())
         streamRef.current = null
         setIsCapturing(false)
       }
       
-      // Store에서 저장된 WebRTC 스트림을 불러와서 비디오 요소에 할당
-      if (savedStream && webrtcVideoRef.current) {
-        console.log('Store에서 저장된 WebRTC 스트림을 비디오 요소에 다시 할당')
-        // 로컬 state도 업데이트
+      // WebRTC 스트림이 있고 활성화되어 있으면 재사용
+      if (savedStream && savedStream.active) {
+        console.log('저장된 WebRTC 스트림이 활성화되어 있음 - 재사용')
+        if (webrtcVideoRef.current) {
+          webrtcVideoRef.current.srcObject = savedStream
+          webrtcVideoRef.current.play().catch((error) => {
+            console.error('비디오 재생 오류:', error)
+          })
+        }
         setLocalWebrtcStream(savedStream)
-        webrtcVideoRef.current.srcObject = savedStream
-        webrtcVideoRef.current.play().catch((error) => {
-          console.error('비디오 재생 오류:', error)
-        })
-      } else if (savedStream) {
-        // 비디오 요소가 아직 준비되지 않았으면 로컬 state만 업데이트
-        console.log('WebRTC 스트림을 로컬 state에 저장 (비디오 요소 대기 중)')
-        setLocalWebrtcStream(savedStream)
+      } else {
+        // WebRTC 스트림이 없거나 비활성화되어 있으면 재연결 시도
+        console.log('WebRTC 스트림이 없거나 비활성화됨 - 재연결 시도')
+        reconnectWebRTC()
       }
-      
-      // Base64 비디오가 있으면 폴링 재시작하여 최신 프레임 받기
-      if (phoneVideoFrame || !savedStream) {
-        console.log('Base64 비디오 폴링 재시작')
-        startBase64Polling()
-      }
+    } else if (!isConnected || !deviceId) {
+      // 연결 정보가 없으면 로컬 카메라 시작
+      console.log('핸드폰 연결 정보가 없어 로컬 카메라 시작')
+      startCamera()
     }
   }
 
@@ -383,17 +447,24 @@ export default function YOLOScanPage() {
 
         // ICE Candidate 폴링 시작
         stopIcePolling = await pollForIceCandidates(deviceId, pc, 'phone')
+        
+        // WebRTC 연결 타임아웃 체크 (10초 후에도 연결되지 않으면 Base64 폴백)
+        setTimeout(() => {
+          const currentStream = localWebrtcStream || storeWebrtcStream
+          if (!currentStream && !phoneVideoFrame) {
+            console.log('WebRTC 연결 타임아웃 (10초), Base64 폴백 시작')
+            startBase64Polling()
+          }
+        }, 10000) // 10초 후
       } catch (error) {
         console.error('WebRTC 초기화 실패:', error)
         // WebRTC 실패 시 base64 방식으로 폴백
+        console.log('WebRTC 연결 실패, Base64 폴백 시작')
         startBase64Polling()
       }
     }
 
-    // Base64 폴링도 함께 시작 (WebRTC와 병행)
-    startBase64Polling()
-    
-    // WebRTC 먼저 시도
+    // WebRTC만 사용 (Base64는 WebRTC 실패 시에만 폴백)
     initWebRTC()
 
     return () => {
@@ -426,7 +497,8 @@ export default function YOLOScanPage() {
         streamId: stream.id,
         streamActive: stream.active,
         videoElement: !!webrtcVideoRef.current,
-        currentSrcObject: webrtcVideoRef.current.srcObject?.id
+        hasSrcObject: !!webrtcVideoRef.current.srcObject,
+        currentSrcObjectId: webrtcVideoRef.current.srcObject instanceof MediaStream ? webrtcVideoRef.current.srcObject.id : 'N/A'
       })
       
       // 기존 스트림과 다를 때만 할당
