@@ -180,9 +180,30 @@ export default function YOLOScanPage() {
 
   // 다시 촬영
   const retakePhoto = () => {
+    console.log('다시 촬영 버튼 클릭 - 핸드폰 카메라 연결 상태 확인:', {
+      isConnected,
+      deviceId,
+      hasWebRTC: !!webrtcStream,
+      hasBase64: !!phoneVideoFrame
+    })
     setCapturedImage(null)
     setDetectedCount(null)
-    startCamera()
+    setIsProcessing(false)
+    
+    // 핸드폰 카메라가 연결되어 있으면 로컬 카메라를 시작하지 않음
+    // WebRTC나 Base64 비디오가 있으면 그대로 사용
+    if (!isConnected || (!webrtcStream && !phoneVideoFrame)) {
+      console.log('핸드폰 카메라 연결이 없어 로컬 카메라 시작')
+      startCamera()
+    } else {
+      console.log('핸드폰 카메라 연결 유지됨 - 로컬 카메라 시작하지 않음')
+      // 핸드폰 카메라 연결이 있으면 로컬 카메라 중지 (혹시 켜져 있다면)
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track: MediaStreamTrack) => track.stop())
+        streamRef.current = null
+        setIsCapturing(false)
+      }
+    }
   }
 
   // WebRTC 연결 시작 (QR 연동된 경우)
