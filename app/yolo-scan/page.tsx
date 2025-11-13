@@ -361,12 +361,21 @@ export default function YOLOScanPage() {
                     autoPlay
                     playsInline
                     muted
-                    className="w-full h-full object-contain"
+                    className={isRotated ? 'h-full w-auto object-cover' : 'w-full h-full object-contain'}
                     style={{ 
                       backgroundColor: '#000',
                       transform: isRotated ? 'rotate(90deg)' : 'none',
                       transformOrigin: 'center center',
-                      transition: 'transform 0.3s ease'
+                      transition: 'transform 0.3s ease',
+                      ...(isRotated && {
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        marginLeft: '-50vh',
+                        marginTop: '-50vw',
+                        width: '100vh',
+                        height: '100vw'
+                      })
                     }}
                     onLoadedMetadata={() => {
                       console.log('비디오 메타데이터 로드 완료', {
@@ -407,12 +416,21 @@ export default function YOLOScanPage() {
                   <img
                     src={phoneVideoFrame}
                     alt="핸드폰 카메라 화면"
-                    className="w-full h-full object-contain"
+                    className={isRotated ? 'h-full w-auto object-cover' : 'w-full h-full object-contain'}
                     key={phoneVideoFrame.substring(0, 50)} // 강제 리렌더링
                     style={{ 
                       transform: isRotated ? 'rotate(90deg)' : 'none',
                       transformOrigin: 'center center',
-                      transition: 'transform 0.3s ease'
+                      transition: 'transform 0.3s ease',
+                      ...(isRotated && {
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        marginLeft: '-50vh',
+                        marginTop: '-50vw',
+                        width: '100vh',
+                        height: '100vw'
+                      })
                     }}
                   />
                   <div className="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-1 rounded text-xs">
