@@ -21,6 +21,7 @@ export default function YOLOScanPage() {
   const [detectedCount, setDetectedCount] = useState<number | null>(null)
   const [phoneVideoFrame, setPhoneVideoFrame] = useState<string | null>(null)
   const [webrtcStream, setWebrtcStream] = useState<MediaStream | null>(null)
+  const [isRotated, setIsRotated] = useState(false) // 가로 모드 회전 상태
   const videoRef = useRef<HTMLVideoElement>(null)
   const webrtcVideoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -353,7 +354,7 @@ export default function YOLOScanPage() {
             <div className="relative w-full h-[600px] bg-black flex items-center justify-center">
               {webrtcStream ? (
                 // WebRTC 스트림 표시 (최우선)
-                <div className="w-full h-full relative">
+                <div className="w-full h-full relative overflow-hidden">
                   <video
                     key={`webrtc-${webrtcStream.id}`}
                     ref={webrtcVideoRef}
@@ -361,7 +362,12 @@ export default function YOLOScanPage() {
                     playsInline
                     muted
                     className="w-full h-full object-contain"
-                    style={{ backgroundColor: '#000' }}
+                    style={{ 
+                      backgroundColor: '#000',
+                      transform: isRotated ? 'rotate(90deg)' : 'none',
+                      transformOrigin: 'center center',
+                      transition: 'transform 0.3s ease'
+                    }}
                     onLoadedMetadata={() => {
                       console.log('비디오 메타데이터 로드 완료', {
                         videoWidth: webrtcVideoRef.current?.videoWidth,
@@ -387,19 +393,38 @@ export default function YOLOScanPage() {
                   <div className="absolute top-2 left-2 bg-green-500 text-white px-2 py-1 rounded text-xs z-10">
                     WebRTC 연결됨 (실시간)
                   </div>
+                  <button
+                    onClick={() => setIsRotated(!isRotated)}
+                    className="absolute top-2 right-2 bg-blue-500 text-white px-3 py-1 rounded text-xs z-10 hover:bg-blue-600 transition-colors"
+                    title="화면 회전"
+                  >
+                    {isRotated ? '↺ 세로' : '↻ 가로'}
+                  </button>
                 </div>
               ) : phoneVideoFrame ? (
                 // Base64 이미지 표시 (WebRTC 폴백)
-                <div className="w-full h-full relative">
+                <div className="w-full h-full relative overflow-hidden">
                   <img
                     src={phoneVideoFrame}
                     alt="핸드폰 카메라 화면"
                     className="w-full h-full object-contain"
                     key={phoneVideoFrame.substring(0, 50)} // 강제 리렌더링
+                    style={{ 
+                      transform: isRotated ? 'rotate(90deg)' : 'none',
+                      transformOrigin: 'center center',
+                      transition: 'transform 0.3s ease'
+                    }}
                   />
                   <div className="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-1 rounded text-xs">
                     Base64 연결됨
                   </div>
+                  <button
+                    onClick={() => setIsRotated(!isRotated)}
+                    className="absolute top-2 right-2 bg-blue-500 text-white px-3 py-1 rounded text-xs z-10 hover:bg-blue-600 transition-colors"
+                    title="화면 회전"
+                  >
+                    {isRotated ? '↺ 세로' : '↻ 가로'}
+                  </button>
                 </div>
               ) : (
                 // 로컬 카메라 화면 (핸드폰 비디오가 없을 때만)
