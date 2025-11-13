@@ -58,7 +58,8 @@ export default function YOLOScanPage() {
     let imageData: string | null = null
 
     // WebRTC 스트림이 있으면 그것을 사용 (최우선)
-    if (webrtcStream && webrtcVideoRef.current && canvasRef.current) {
+    const currentStream = localWebrtcStream || storeWebrtcStream
+    if (currentStream && webrtcVideoRef.current && canvasRef.current) {
       const video = webrtcVideoRef.current
       const canvas = canvasRef.current
       const ctx = canvas.getContext('2d')
@@ -219,17 +220,24 @@ export default function YOLOScanPage() {
           if (retryCount % 10 === 0) {
             console.log(`핸드폰 비디오 프레임 대기 중... (시도 ${retryCount}/${maxRetries})`, result)
           }
-          if (retryCount >= maxRetries && !phoneVideoFrame && !isCapturing && !webrtcStream) {
-            console.log('핸드폰 비디오를 받지 못해 로컬 카메라 시작')
-            startCamera()
+          // 핸드폰 연결이 끊어졌을 때는 자동으로 로컬 카메라를 시작하지 않음
+          // 사용자가 명시적으로 "로컬 카메라 사용" 버튼을 눌러야 함
+          if (retryCount >= maxRetries && !phoneVideoFrame && !isCapturing) {
+            const currentStream = localWebrtcStream || storeWebrtcStream
+            if (!currentStream) {
+              console.log('핸드폰 비디오를 받지 못함 - 사용자가 로컬 카메라 버튼을 눌러야 함')
+            }
           }
         }
       } catch (error) {
         retryCount++
         console.error('비디오 프레임 폴링 오류:', error)
-        if (retryCount >= maxRetries && !phoneVideoFrame && !isCapturing && !webrtcStream) {
-          console.log('핸드폰 비디오 연결 실패, 로컬 카메라 시작')
-          startCamera()
+        // 핸드폰 연결이 끊어졌을 때는 자동으로 로컬 카메라를 시작하지 않음
+        if (retryCount >= maxRetries && !phoneVideoFrame && !isCapturing) {
+          const currentStream = localWebrtcStream || storeWebrtcStream
+          if (!currentStream) {
+            console.log('핸드폰 비디오 연결 실패 - 사용자가 로컬 카메라 버튼을 눌러야 함')
+          }
         }
       }
     }, 200)
