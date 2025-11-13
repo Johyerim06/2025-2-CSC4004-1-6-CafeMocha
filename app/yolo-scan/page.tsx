@@ -47,6 +47,8 @@ export default function YOLOScanPage() {
 
   // 사진 촬영
   const capturePhoto = async () => {
+    let imageData: string | null = null
+
     // WebRTC 스트림이 있으면 그것을 사용 (최우선)
     if (webrtcStream && webrtcVideoRef.current && canvasRef.current) {
       const video = webrtcVideoRef.current
@@ -57,40 +59,83 @@ export default function YOLOScanPage() {
         canvas.width = video.videoWidth
         canvas.height = video.videoHeight
         ctx.drawImage(video, 0, 0)
-        const imageData = canvas.toDataURL('image/jpeg', 0.9)
-        setCapturedImage(imageData)
-        return
+        imageData = canvas.toDataURL('image/jpeg', 0.9)
       }
     }
-
     // Base64 이미지가 있으면 그것을 사용
-    if (phoneVideoFrame) {
-      setCapturedImage(phoneVideoFrame)
-      return
+    else if (phoneVideoFrame) {
+      imageData = phoneVideoFrame
     }
-
     // 로컬 카메라 사용
-    if (!videoRef.current || !canvasRef.current) return
+    else if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current
+      const canvas = canvasRef.current
+      const ctx = canvas.getContext('2d')
 
-    const video = videoRef.current
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')
+      if (ctx) {
+        canvas.width = video.videoWidth
+        canvas.height = video.videoHeight
+        ctx.drawImage(video, 0, 0)
+        imageData = canvas.toDataURL('image/jpeg', 0.9)
+      }
 
-    if (!ctx) return
-
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    ctx.drawImage(video, 0, 0)
-
-    const imageData = canvas.toDataURL('image/jpeg')
-    setCapturedImage(imageData)
-
-    // 카메라 중지
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track: MediaStreamTrack) => track.stop())
-      streamRef.current = null
+      // 로컬 카메라 중지
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track: MediaStreamTrack) => track.stop())
+        streamRef.current = null
+      }
+      setIsCapturing(false)
     }
-    setIsCapturing(false)
+
+    if (imageData) {
+      setCapturedImage(imageData)
+      // 사진 촬영 후 자동으로 YOLO API로 전송
+      await processImageWithData(imageData)
+    }
+  }
+
+  // 이미지 데이터로 YOLO 처리
+  const processImageWithData = async (imageData: string) => {
+    setIsProcessing(true)
+    try {
+      // base64 이미지를 Blob으로 변환
+      const response = await fetch(imageData)
+      const blob = await response.blob()
+
+      // FormData 생성
+      const formData = new FormData()
+      formData.append('image', blob, 'cart-image.jpg')
+
+      console.log('YOLO API로 이미지 전송 중...')
+
+      // YOLO API 호출
+      const apiResponse = await fetch('/api/yolo', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const result = await apiResponse.json()
+
+      console.log('YOLO API 응답:', result)
+
+      if (result.success) {
+        setDetectedCount(result.count)
+        setYOLOCount(result.count)
+        console.log(`YOLO 탐지 완료: ${result.count}개 객체 발견`)
+        // 다음 페이지로 이동
+        setTimeout(() => {
+          router.push('/barcode-scan')
+        }, 1500)
+      } else {
+        console.error('YOLO 탐지 실패:', result.message)
+        alert(`YOLO 탐지 실패: ${result.message || '알 수 없는 오류'}`)
+        setIsProcessing(false)
+      }
+    } catch (error) {
+      console.error('YOLO API 오류:', error)
+      alert('YOLO API 호출 중 오류가 발생했습니다.')
+      setIsProcessing(false)
+    }
   }
 
   // YOLO API로 이미지 전송
@@ -294,7 +339,7 @@ export default function YOLOScanPage() {
           {!capturedImage && (
             <button
               onClick={capturePhoto}
-              disabled={!isCapturing}
+              disabled={isProcessing || (!isCapturing && !webrtcStream && !phoneVideoFrame)}
               className="flex items-center gap-2 px-6 py-4 rounded-[10px] transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ 
                 backgroundColor: '#18181b',

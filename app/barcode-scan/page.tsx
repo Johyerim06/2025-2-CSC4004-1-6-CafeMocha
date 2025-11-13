@@ -106,18 +106,26 @@ export default function BarcodeScanPage() {
   // 바코드 스캔 처리
   const handleBarcodeScanned = async (barcode: string) => {
     try {
+      console.log('바코드 스캔 처리 시작:', barcode)
+      
       // API로 상품 조회
       const response = await fetch(`/api/products?barcode=${barcode}`)
       const result = await response.json()
 
       if (result.success && result.product) {
+        console.log('상품 조회 성공:', result.product)
         addProduct(result.product)
-        // 스캔 성공 후 잠시 중지
-        await stopScanning()
-        setTimeout(() => {
-          startScanning()
-        }, 1000)
+        setScanError(null)
+        
+        // 로컬 스캔 중이면 잠시 중지 후 재시작
+        if (isScanning && html5QrCodeRef.current) {
+          await stopScanning()
+          setTimeout(() => {
+            startScanning()
+          }, 1000)
+        }
       } else {
+        console.warn('등록되지 않은 상품:', barcode)
         setScanError('등록되지 않은 상품입니다.')
         setTimeout(() => setScanError(null), 3000)
       }
@@ -164,13 +172,14 @@ export default function BarcodeScanPage() {
         const result = await response.json()
 
         if (result.success && result.barcode) {
+          console.log('핸드폰에서 바코드 수신:', result.barcode)
           setPhoneBarcode(result.barcode)
           handleBarcodeScanned(result.barcode)
         }
       } catch (error) {
         console.error('바코드 폴링 오류:', error)
       }
-    }, 1000) // 1초마다 확인
+    }, 500) // 0.5초마다 확인 (더 빠른 응답)
 
     return () => clearInterval(pollBarcode)
   }, [deviceId])
@@ -211,7 +220,29 @@ export default function BarcodeScanPage() {
           >
             {deviceId ? (
               // 핸드폰에서 스캔하는 경우 - 핸드폰 카메라 화면 표시
-              <PhoneVideoStream deviceId={deviceId} />
+              <div className="w-full h-full relative">
+                <PhoneVideoStream deviceId={deviceId} />
+                {/* 바코드 스캔 안내 오버레이 */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="border-2 border-blue-500 rounded-lg" style={{ width: '300px', height: '300px' }}>
+                    <div className="absolute -top-8 left-0 right-0 text-center">
+                      <p className="text-white bg-blue-500 px-4 py-2 rounded-lg text-sm font-semibold">
+                        바코드를 이 영역에 맞춰주세요
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                {phoneBarcode && (
+                  <div className="absolute top-4 left-4 bg-green-500 text-white px-4 py-2 rounded-lg z-10">
+                    바코드 스캔됨: {phoneBarcode}
+                  </div>
+                )}
+                {scanError && (
+                  <div className="absolute top-4 left-4 bg-red-500 text-white px-4 py-2 rounded-lg z-10">
+                    {scanError}
+                  </div>
+                )}
+              </div>
             ) : (
               // 로컬 카메라로 스캔하는 경우
               <>
