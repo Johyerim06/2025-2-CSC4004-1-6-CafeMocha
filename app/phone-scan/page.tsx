@@ -2,13 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } from '@zxing/library'
-import {
-  createWebRTCPeerConnection,
-  createAnswer,
-  sendAnswerToServer,
-  sendIceCandidateToServer,
-  pollForOffer,
-} from './webrtc'
 
 export default function PhoneScanPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -55,9 +48,6 @@ export default function PhoneScanPage() {
   const startScanning = async (deviceId: string): Promise<() => void> => {
     let videoInterval: NodeJS.Timeout | null = null
     let stream: MediaStream | null = null
-    let pc: RTCPeerConnection | null = null
-    let stopOfferPolling: (() => void) | null = null
-    let stopIcePolling: (() => void) | null = null
     
     try {
       // 카메라 권한 확인
@@ -196,80 +186,14 @@ export default function PhoneScanPage() {
         }
       }
 
-      // WebRTC 연결 시도 (서버리스 환경)
-      try {
-        console.log('WebRTC 연결 시작...')
-        
-        // WebRTC PeerConnection 생성
-        pc = await createWebRTCPeerConnection(
-          deviceId,
-          stream,
-          async (candidate) => {
-            await sendIceCandidateToServer(deviceId, candidate)
-          }
-        )
-
-        // Offer 폴링 시작
-        stopOfferPolling = await pollForOffer(deviceId, async (offer) => {
-          try {
-            // Answer 생성 및 전송
-            const answer = await createAnswer(deviceId, pc!, offer)
-            await sendAnswerToServer(deviceId, answer)
-            
-            console.log('WebRTC Answer 전송 완료')
-            
-            // 웹에서 보낸 ICE Candidate 폴링 시작
-            const pollWebIceCandidates = async () => {
-              try {
-                const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-                const response = await fetch(`${baseUrl}/api/webrtc/ice?deviceId=${deviceId}&type=web`)
-                const result = await response.json()
-                
-                if (result.success && result.candidates) {
-                  for (const candidate of result.candidates) {
-                    try {
-                      await pc!.addIceCandidate(new RTCIceCandidate(candidate))
-                      console.log('웹 ICE Candidate 추가:', candidate)
-                    } catch (error) {
-                      console.error('ICE Candidate 추가 실패:', error)
-                    }
-                  }
-                }
-              } catch (error) {
-                console.error('ICE Candidate 폴링 오류:', error)
-              }
-            }
-            
-            // ICE Candidate 폴링 시작 (빠른 응답을 위해 간격 단축)
-            const iceInterval = setInterval(pollWebIceCandidates, 150)
-            stopIcePolling = () => clearInterval(iceInterval)
-            
-            // WebRTC 연결 성공 시 base64 전송 중지
-            if (videoInterval) {
-              clearInterval(videoInterval)
-              videoInterval = null
-            }
-          } catch (error) {
-            console.error('WebRTC Answer 생성 실패:', error)
-            // 실패 시 base64 방식으로 폴백
-            if (!videoInterval) {
-              sendVideoFrame()
-              videoInterval = setInterval(sendVideoFrame, 200)
-            }
-          }
-        })
-      } catch (error) {
-        console.error('WebRTC 초기화 실패, base64 방식 사용:', error)
-      }
-
-      // 즉시 첫 프레임 전송 (연결 확인용, WebRTC 폴백용)
+      // 즉시 첫 프레임 전송
       // 비디오가 완전히 준비된 후 전송
       const startVideoFrameSending = () => {
         sendVideoFrame()
         console.log('핸드폰 카메라 연결 완료! 비디오 프레임 전송 시작:', deviceId)
         console.log('API 엔드포인트:', `${typeof window !== 'undefined' ? window.location.origin : ''}/api/phone/video`)
         
-        // 200ms마다 비디오 프레임 전송 (약 5fps) - WebRTC 실패 시 사용
+        // 200ms마다 비디오 프레임 전송 (약 5fps)
         if (!videoInterval) {
           videoInterval = setInterval(() => {
             sendVideoFrame()
@@ -335,19 +259,7 @@ export default function PhoneScanPage() {
       return () => {
         console.log('핸드폰 스캔 정리 중...')
         
-        // WebRTC 정리
-        if (stopOfferPolling) {
-          stopOfferPolling()
-        }
-        if (stopIcePolling) {
-          stopIcePolling()
-        }
-        if (pc) {
-          pc.close()
-          pc = null
-        }
-        
-        // Base64 전송 정리
+        // 비디오 프레임 전송 정리
         if (videoInterval) {
           clearInterval(videoInterval)
           videoInterval = null

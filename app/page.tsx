@@ -5,15 +5,8 @@ import { useRouter } from 'next/navigation'
 export default function Home() {
   const router = useRouter()
 
-  const handleQRGenerate = () => {
-    console.log('QR 생성하기 버튼 클릭됨')
-    try {
-      router.push('/qr-scan')
-    } catch (error) {
-      console.error('페이지 이동 오류:', error)
-      // 폴백: window.location 사용
-      window.location.href = '/qr-scan'
-    }
+  const handleStartPayment = () => {
+    router.push('/yolo-scan')
   }
 
   return (
@@ -40,9 +33,9 @@ export default function Home() {
             스캔을 빠트린 물건이 없는지 확인해보세요.
           </p>
           
-          {/* QR 생성하기 버튼 */}
+          {/* 결제 시작하기 버튼 */}
           <button
-            onClick={handleQRGenerate}
+            onClick={handleStartPayment}
             type="button"
             className="flex items-center gap-2 px-6 py-4 rounded-[10px] transition-opacity hover:opacity-90 cursor-pointer relative z-10"
             style={{ 
@@ -56,7 +49,7 @@ export default function Home() {
             <span 
               className="text-lg font-bold leading-6 font-[var(--font-plus-jakarta-sans)]"
             >
-              QR 생성하기
+              결제 시작하기
             </span>
             {/* 아이콘 영역 - 필요시 SVG 아이콘 추가 */}
             <svg 
