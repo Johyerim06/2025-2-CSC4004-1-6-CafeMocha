@@ -26,3 +26,17 @@ body {
     rgb(var(--background-start-rgb));
 }
 
+/* 바코드 스캐너 스타일 */
+#barcode-scanner video,
+#barcode-scanner canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+}
+
+#barcode-scanner {
+  overflow: hidden;
+  position: relative;
+}
+

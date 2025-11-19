@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { useStore } from '@/lib/store'
 import { Html5Qrcode } from 'html5-qrcode'
 
@@ -49,6 +50,7 @@ function PhoneVideoStream({ deviceId }: { deviceId: string }) {
 }
 
 export default function BarcodeScanPage() {
+  const router = useRouter()
   const { cartItems, yoloCount, addProduct, decreaseQuantity, getTotalCount, setScanResult, scanResult, deviceId } = useStore()
   const [isScanning, setIsScanning] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
@@ -73,7 +75,7 @@ export default function BarcodeScanPage() {
         { facingMode: 'environment' },
         {
           fps: 10,
-          qrbox: { width: 250, height: 250 },
+          qrbox: { width: 400, height: 250 },
         },
         (decodedText) => {
           handleBarcodeScanned(decodedText)
@@ -156,9 +158,8 @@ export default function BarcodeScanPage() {
       // 개수가 다르면 에러 상태로 설정
       setScanResult('error')
     } else {
-      // 개수가 같으면 성공
-      setScanResult('success')
-      // 성공 메시지는 모달로 표시됨
+      // 개수가 같으면 결제 성공 페이지로 이동
+      router.push('/payment-success')
     }
   }
 
@@ -210,14 +211,23 @@ export default function BarcodeScanPage() {
 
         <div className="flex gap-6 w-full max-w-[1420px]">
           {/* 왼쪽: 바코드 스캔 영역 */}
-          <div 
-            className="flex-shrink-0 rounded-[20px] overflow-hidden relative"
-            style={{ 
-              backgroundColor: '#ffffff',
-              width: '655px',
-              height: '600px'
-            }}
-          >
+          <div className="flex-shrink-0 flex flex-col">
+            {/* 에러 메시지 - 카메라 영역 바로 위 */}
+            {scanError && (
+              <div className="mb-4 flex justify-center">
+                <div className="bg-red-500 text-white px-8 py-4 rounded-lg shadow-lg">
+                  <p className="text-2xl font-bold text-center">{scanError}</p>
+                </div>
+              </div>
+            )}
+            <div 
+              className="rounded-[20px] overflow-hidden relative"
+              style={{ 
+                backgroundColor: '#ffffff',
+                width: '655px',
+                height: '600px'
+              }}
+            >
             {deviceId ? (
               // 핸드폰에서 스캔하는 경우 - 핸드폰 카메라 화면 표시
               <div className="w-full h-full relative">
@@ -235,11 +245,6 @@ export default function BarcodeScanPage() {
                 {phoneBarcode && (
                   <div className="absolute top-4 left-4 bg-green-500 text-white px-4 py-2 rounded-lg z-10">
                     바코드 스캔됨: {phoneBarcode}
-                  </div>
-                )}
-                {scanError && (
-                  <div className="absolute top-4 left-4 bg-red-500 text-white px-4 py-2 rounded-lg z-10">
-                    {scanError}
                   </div>
                 )}
               </div>
@@ -261,13 +266,9 @@ export default function BarcodeScanPage() {
                     </button>
                   </div>
                 )}
-                {scanError && (
-                  <div className="absolute top-4 left-4 bg-red-500 text-white px-4 py-2 rounded-lg z-10">
-                    {scanError}
-                  </div>
-                )}
               </>
             )}
+            </div>
           </div>
 
           {/* 오른쪽: 상품 리스트 영역 */}
@@ -353,7 +354,7 @@ export default function BarcodeScanPage() {
         {scanResult === 'error' && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div 
-              className="bg-[#828282] rounded-[20px] p-12 max-w-[1064px] w-full"
+              className="bg-white rounded-[20px] p-12 max-w-[1064px] w-full shadow-2xl"
             >
               <h2 
                 className="text-[52px] font-semibold leading-[62px] tracking-[-2px] text-center font-[var(--font-poppins)]"
@@ -365,9 +366,9 @@ export default function BarcodeScanPage() {
                 <button
                   onClick={() => {
                     setScanResult(null)
-                    stopScanning()
+                    // 스캔은 계속 유지 (stopScanning 호출 안 함)
                   }}
-                  className="px-8 py-4 bg-white text-black rounded-lg font-semibold"
+                  className="px-8 py-4 bg-[#18181b] text-white rounded-lg font-semibold"
                 >
                   확인
                 </button>
