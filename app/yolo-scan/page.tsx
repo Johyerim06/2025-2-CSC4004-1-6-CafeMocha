@@ -259,8 +259,12 @@ export default function YOLOScanPage() {
           setIsProcessing(false)
           setShowManualInput(true)
         } else {
-          alert(`YOLO 탐지 실패 (${newFailureCount}/3): ${result.message || '알 수 없는 오류'}`)
+          alert(`객체 탐지 중 오류가 발생했습니다 (${newFailureCount}/3): ${result.message || '알 수 없는 오류'}`)
           setIsProcessing(false)
+          // 오류 발생 시 촬영된 이미지 리셋하고 카메라 다시 시작
+          setCapturedImage(null)
+          setDetectedCount(null)
+          await startCamera()
         }
       }
     } catch (error) {
@@ -273,8 +277,12 @@ export default function YOLOScanPage() {
         setIsProcessing(false)
         setShowManualInput(true)
       } else {
-        alert(`YOLO API 호출 오류 (${newFailureCount}/3)`)
+        alert(`객체 탐지 중 오류가 발생했습니다 (${newFailureCount}/3)`)
         setIsProcessing(false)
+        // 오류 발생 시 촬영된 이미지 리셋하고 카메라 다시 시작
+        setCapturedImage(null)
+        setDetectedCount(null)
+        await startCamera()
       }
     }
   }
@@ -315,16 +323,34 @@ export default function YOLOScanPage() {
         
         if (newFailureCount >= 3) {
           // 3번 실패 시 수동 입력 팝업 표시
+          setIsProcessing(false)
           setShowManualInput(true)
         } else {
-          alert(`객체 탐지 실패 (${newFailureCount}/3): ${result.message || '알 수 없는 오류'}`)
+          alert(`객체 탐지 중 오류가 발생했습니다 (${newFailureCount}/3): ${result.message || '알 수 없는 오류'}`)
+          setIsProcessing(false)
+          // 오류 발생 시 촬영된 이미지 리셋하고 카메라 다시 시작
+          setCapturedImage(null)
+          setDetectedCount(null)
+          await startCamera()
         }
       }
     } catch (error) {
       console.error('YOLO 처리 오류:', error)
-      alert('이미지 처리 중 오류가 발생했습니다.')
-    } finally {
-      setIsProcessing(false)
+      const newFailureCount = failureCount + 1
+      setFailureCount(newFailureCount)
+      
+      if (newFailureCount >= 3) {
+        // 3번 실패 시 수동 입력 팝업 표시
+        setIsProcessing(false)
+        setShowManualInput(true)
+      } else {
+        alert('객체 탐지 중 오류가 발생했습니다.')
+        setIsProcessing(false)
+        // 오류 발생 시 촬영된 이미지 리셋하고 카메라 다시 시작
+        setCapturedImage(null)
+        setDetectedCount(null)
+        await startCamera()
+      }
     }
   }
 
@@ -484,24 +510,6 @@ export default function YOLOScanPage() {
               {detectedCount !== null && !isProcessing && (
                 <div className="absolute top-4 left-4 bg-green-500 text-white px-4 py-2 rounded-lg font-semibold">
                   탐지된 객체: {detectedCount}개
-                </div>
-              )}
-
-              {/* 액션 버튼들 */}
-              {!isProcessing && detectedCount === null && (
-                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-4">
-                  <button
-                    onClick={retakePhoto}
-                    className="px-6 py-3 bg-gray-500 text-white rounded-lg font-semibold"
-                  >
-                    다시 촬영
-                  </button>
-                  <button
-                    onClick={processImage}
-                    className="px-6 py-3 bg-blue-500 text-white rounded-lg font-semibold"
-                  >
-                    분석하기
-                  </button>
                 </div>
               )}
             </div>
