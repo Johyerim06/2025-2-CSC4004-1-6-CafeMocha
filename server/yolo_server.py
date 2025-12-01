@@ -26,6 +26,13 @@ def load_model():
         print("모델 로딩 완료!")
     return model
 
+# gunicorn 사용 시 모델 미리 로드 (모듈 import 시 실행)
+# 직접 실행 시에도 if __name__ == '__main__'에서 로드됨
+try:
+    load_model()
+except Exception as e:
+    print(f"초기 모델 로딩 실패 (첫 요청 시 재시도): {str(e)}")
+
 @app.route('/api/yolo/detect', methods=['POST'])
 def detect_objects():
     try:
