@@ -14,35 +14,37 @@ export default function PaymentSuccessPage() {
       <div className="flex flex-col items-center justify-center min-h-screen px-4 sm:px-6 md:px-7 py-6 sm:py-10 md:py-16 lg:py-20">
         {/* 타이틀 */}
         <h1 
-          className="text-4xl sm:text-5xl md:text-[58px] font-extrabold leading-tight sm:leading-[66px] text-center mb-6 font-[var(--font-plus-jakarta-sans)]"
+          className="text-4xl sm:text-5xl md:text-[58px] font-extrabold leading-tight sm:leading-[66px] text-center mb-7 font-[var(--font-plus-jakarta-sans)] tracking-tight"
           style={{ 
-            color: '#18181b'
+            color: '#18181b',
+            letterSpacing: '-0.02em'
           }}
         >
-          👏 결제가 성공적으로 완료되었습니다.
+          👏 결제가 성공적으로 완료되었습니다
         </h1>
         
         {/* 서브 타이틀 */}
         <p 
-          className="text-xl sm:text-2xl md:text-[36px] leading-tight sm:leading-[26px] text-center mb-12 font-[var(--font-inter)]"
+          className="text-xl sm:text-2xl md:text-[36px] leading-relaxed text-center mb-14 font-[var(--font-inter)] tracking-tight"
           style={{ 
             color: '#52525b'
           }}
         >
-          결제하신 물건을 잘 챙겨가세요.
+          결제하신 물건을 잘 챙겨가세요
         </p>
         
         {/* 처음으로 버튼 */}
         <button
           onClick={handleGoHome}
-          className="flex items-center gap-2 px-6 py-4 rounded-[10px] transition-opacity hover:opacity-90"
+          className="flex items-center gap-2.5 px-7 py-4.5 rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-xl"
           style={{ 
             backgroundColor: '#18181b',
-            color: '#ffffff'
+            color: '#ffffff',
+            boxShadow: '0 4px 16px rgba(24, 24, 27, 0.2)'
           }}
         >
           <span 
-            className="text-xl sm:text-2xl md:text-[24px] font-bold leading-6 font-[var(--font-plus-jakarta-sans)]"
+            className="text-xl sm:text-2xl md:text-[24px] font-semibold leading-6 font-[var(--font-plus-jakarta-sans)] tracking-tight"
           >
             처음으로
           </span>

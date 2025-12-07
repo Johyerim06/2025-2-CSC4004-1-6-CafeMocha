@@ -4,7 +4,6 @@ const nextConfig = {
   images: {
     domains: ['figma.com'],
   },
-  // 개발 모드에서 소스맵 비활성화 (선택사항)
   productionBrowserSourceMaps: false,
 }
 

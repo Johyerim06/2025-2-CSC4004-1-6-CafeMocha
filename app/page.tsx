@@ -15,9 +15,10 @@ export default function Home() {
         <div className="max-w-2xl">
           {/* 메인 타이틀 */}
           <h1 
-            className="mb-4 text-[58px] font-extrabold leading-[66px] tracking-normal font-[var(--font-plus-jakarta-sans)]"
+            className="mb-5 text-[58px] font-extrabold leading-[66px] tracking-tight font-[var(--font-plus-jakarta-sans)]"
             style={{ 
-              color: '#18181b'
+              color: '#18181b',
+              letterSpacing: '-0.02em'
             }}
           >
             무인 결제 보조 시스템
@@ -25,29 +26,30 @@ export default function Home() {
           
           {/* 서브 타이틀 */}
           <p 
-            className="mb-12 text-2xl leading-[26px] font-[var(--font-inter)]"
+            className="mb-14 text-2xl leading-relaxed font-[var(--font-inter)] tracking-tight"
             style={{ 
               color: '#52525b'
             }}
           >
-            스캔을 빠트린 물건이 없는지 확인해보세요.
+            스캔을 빠트린 물건이 없는지 확인해보세요
           </p>
           
           {/* 결제 시작하기 버튼 */}
           <button
             onClick={handleStartPayment}
             type="button"
-            className="flex items-center gap-2 px-6 py-4 rounded-[10px] transition-opacity hover:opacity-90 cursor-pointer relative z-10"
+            className="flex items-center gap-2.5 px-7 py-4.5 rounded-xl transition-all duration-200 hover:scale-105 hover:shadow-xl cursor-pointer relative z-10"
             style={{ 
               backgroundColor: '#18181b',
               color: '#ffffff',
               border: 'none',
               outline: 'none',
-              pointerEvents: 'auto'
+              pointerEvents: 'auto',
+              boxShadow: '0 4px 16px rgba(24, 24, 27, 0.2)'
             }}
           >
             <span 
-              className="text-lg font-bold leading-6 font-[var(--font-plus-jakarta-sans)]"
+              className="text-lg font-semibold leading-6 font-[var(--font-plus-jakarta-sans)] tracking-tight"
             >
               결제 시작하기
             </span>

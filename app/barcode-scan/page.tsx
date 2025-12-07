@@ -201,12 +201,13 @@ export default function BarcodeScanPage() {
       <div className="flex flex-col items-center min-h-screen px-7 py-20">
         {/* 타이틀 */}
         <h1 
-          className="text-[52px] font-semibold leading-[62px] tracking-[-2px] text-center mb-8 font-[var(--font-poppins)]"
+          className="text-[52px] font-bold leading-[62px] tracking-tight text-center mb-10 font-[var(--font-poppins)]"
           style={{ 
-            color: '#090914'
+            color: '#090914',
+            letterSpacing: '-0.02em'
           }}
         >
-          바코드를 찍어주세요.
+          바코드를 찍어주세요
         </h1>
 
         <div className="flex gap-6 w-full max-w-[1420px]">
@@ -214,36 +215,37 @@ export default function BarcodeScanPage() {
           <div className="flex-shrink-0 flex flex-col">
             {/* 에러 메시지 - 카메라 영역 바로 위 */}
             {scanError && (
-              <div className="mb-4 flex justify-center">
-                <div className="bg-red-500 text-white px-8 py-4 rounded-lg shadow-lg">
-                  <p className="text-2xl font-bold text-center">{scanError}</p>
+              <div className="mb-5 flex justify-center">
+                <div className="bg-red-500 text-white px-10 py-5 rounded-xl shadow-xl backdrop-blur-sm" style={{ boxShadow: '0 8px 20px rgba(239, 68, 68, 0.3)' }}>
+                  <p className="text-2xl font-bold text-center tracking-tight">{scanError}</p>
                 </div>
               </div>
             )}
             <div 
-              className="rounded-[20px] overflow-hidden relative"
-              style={{ 
-                backgroundColor: '#ffffff',
-                width: '655px',
-                height: '600px'
-              }}
-            >
+              className="rounded-2xl overflow-hidden relative shadow-xl"
+            style={{ 
+              backgroundColor: '#ffffff',
+              width: '655px',
+                height: '600px',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.08)'
+            }}
+          >
             {deviceId ? (
               // 핸드폰에서 스캔하는 경우 - 핸드폰 카메라 화면 표시
               <div className="w-full h-full relative">
                 <PhoneVideoStream deviceId={deviceId} />
                 {/* 바코드 스캔 안내 오버레이 */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="border-2 border-blue-500 rounded-lg" style={{ width: '300px', height: '300px' }}>
-                    <div className="absolute -top-8 left-0 right-0 text-center">
-                      <p className="text-white bg-blue-500 px-4 py-2 rounded-lg text-sm font-semibold">
+                  <div className="border-2 border-blue-500 rounded-xl shadow-lg" style={{ width: '300px', height: '300px', boxShadow: '0 0 0 4px rgba(59, 130, 246, 0.1)' }}>
+                    <div className="absolute -top-9 left-0 right-0 text-center">
+                      <p className="text-white bg-blue-500 px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg backdrop-blur-sm tracking-tight" style={{ boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }}>
                         바코드를 이 영역에 맞춰주세요
                       </p>
                     </div>
                   </div>
                 </div>
                 {phoneBarcode && (
-                  <div className="absolute top-4 left-4 bg-green-500 text-white px-4 py-2 rounded-lg z-10">
+                  <div className="absolute top-4 left-4 bg-green-500 text-white px-5 py-2.5 rounded-xl z-10 shadow-lg backdrop-blur-sm font-semibold" style={{ boxShadow: '0 4px 12px rgba(34, 197, 94, 0.3)' }}>
                     바코드 스캔됨: {phoneBarcode}
                   </div>
                 )}
@@ -260,7 +262,8 @@ export default function BarcodeScanPage() {
                   <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
                     <button
                       onClick={startScanning}
-                      className="px-6 py-3 bg-blue-500 text-white rounded-lg font-semibold"
+                      className="px-7 py-3.5 bg-blue-500 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+                      style={{ boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }}
                     >
                       바코드 스캔 시작
                     </button>
@@ -275,7 +278,7 @@ export default function BarcodeScanPage() {
           <div className="flex-1 flex flex-col gap-4">
             {/* 상품 리스트 */}
             {cartItems.length === 0 ? (
-              <div className="text-center text-gray-500 py-20">
+              <div className="text-center text-gray-500 py-20 text-lg tracking-tight">
                 바코드를 스캔하여 상품을 추가하세요
               </div>
             ) : (
@@ -283,18 +286,19 @@ export default function BarcodeScanPage() {
                 {cartItems.map((item, index) => (
                   <div
                     key={`${item.product.barcode}-${index}`}
-                    className="bg-white rounded-[20px] p-6 flex items-center justify-between"
+                    className="bg-white rounded-2xl p-6 flex items-center justify-between shadow-md hover:shadow-lg transition-shadow duration-200"
+                    style={{ boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)' }}
                   >
                     <div className="flex items-center gap-6 flex-1">
                       <span 
-                        className="text-[32px] font-semibold leading-[62px] tracking-[-2px] font-[var(--font-poppins)]"
-                        style={{ color: '#090914' }}
+                        className="text-[32px] font-bold leading-[62px] tracking-tight font-[var(--font-poppins)]"
+                        style={{ color: '#090914', letterSpacing: '-0.01em' }}
                       >
                         {item.product.name}
                       </span>
                       <span 
-                        className="text-[32px] font-semibold leading-[62px] tracking-[-2px] font-[var(--font-poppins)]"
-                        style={{ color: '#090914' }}
+                        className="text-[32px] font-bold leading-[62px] tracking-tight font-[var(--font-poppins)]"
+                        style={{ color: '#090914', letterSpacing: '-0.01em' }}
                       >
                         {item.product.price.toLocaleString()}원
                       </span>
@@ -302,19 +306,21 @@ export default function BarcodeScanPage() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => decreaseQuantity(item.product.barcode)}
-                        className="w-[52px] h-[56px] bg-[#18181b] text-white rounded-[10px] flex items-center justify-center font-bold text-lg font-[var(--font-plus-jakarta-sans)]"
+                        className="w-[52px] h-[56px] bg-[#18181b] text-white rounded-xl flex items-center justify-center font-bold text-lg font-[var(--font-plus-jakarta-sans)] hover:opacity-90 transition-all duration-200 hover:scale-105 shadow-md"
+                        style={{ boxShadow: '0 2px 8px rgba(24, 24, 27, 0.2)' }}
                       >
                         -
                       </button>
                       <span 
-                        className="text-[32px] font-semibold leading-[62px] tracking-[-2px] font-[var(--font-poppins)] px-4"
-                        style={{ color: '#090914' }}
+                        className="text-[32px] font-bold leading-[62px] tracking-tight font-[var(--font-poppins)] px-5"
+                        style={{ color: '#090914', letterSpacing: '-0.01em' }}
                       >
                         {item.quantity}
                       </span>
                       <button
                         onClick={() => increaseQuantity(item.product.barcode)}
-                        className="w-[52px] h-[56px] bg-[#18181b] text-white rounded-[10px] flex items-center justify-center font-bold text-lg font-[var(--font-plus-jakarta-sans)]"
+                        className="w-[52px] h-[56px] bg-[#18181b] text-white rounded-xl flex items-center justify-center font-bold text-lg font-[var(--font-plus-jakarta-sans)] hover:opacity-90 transition-all duration-200 hover:scale-105 shadow-md"
+                        style={{ boxShadow: '0 2px 8px rgba(24, 24, 27, 0.2)' }}
                       >
                         +
                       </button>
@@ -325,24 +331,25 @@ export default function BarcodeScanPage() {
             )}
 
             {/* 총계 및 결제 버튼 */}
-            <div className="bg-white rounded-[20px] p-6 flex items-center justify-between mt-auto">
-              <div className="flex items-center gap-6">
+            <div className="bg-white rounded-2xl p-7 flex items-center justify-between mt-auto shadow-lg" style={{ boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)' }}>
+              <div className="flex items-center gap-7">
                 <span 
-                  className="text-[32px] font-semibold leading-[62px] tracking-[-2px] font-[var(--font-poppins)]"
-                  style={{ color: '#090914' }}
+                  className="text-[32px] font-bold leading-[62px] tracking-tight font-[var(--font-poppins)]"
+                  style={{ color: '#090914', letterSpacing: '-0.01em' }}
                 >
                   총 {totalCount}개
                 </span>
                 <span 
-                  className="text-[32px] font-semibold leading-[62px] tracking-[-2px] font-[var(--font-poppins)]"
-                  style={{ color: '#090914' }}
+                  className="text-[32px] font-bold leading-[62px] tracking-tight font-[var(--font-poppins)]"
+                  style={{ color: '#090914', letterSpacing: '-0.01em' }}
                 >
                   {totalPrice.toLocaleString()}원
                 </span>
               </div>
               <button
                 onClick={handlePayment}
-                className="px-6 py-4 bg-[#18181b] text-white rounded-[10px] font-bold text-lg font-[var(--font-plus-jakarta-sans)]"
+                className="px-7 py-4 bg-[#18181b] text-white rounded-xl font-semibold text-lg font-[var(--font-plus-jakarta-sans)] hover:opacity-90 transition-all duration-200 hover:scale-105 shadow-lg"
+                style={{ boxShadow: '0 4px 12px rgba(24, 24, 27, 0.2)' }}
               >
                 결제하기
               </button>
@@ -352,23 +359,25 @@ export default function BarcodeScanPage() {
 
         {/* 에러 알림창 */}
         {scanResult === 'error' && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm animate-in fade-in duration-200">
             <div 
-              className="bg-white rounded-[20px] p-12 max-w-[1064px] w-full shadow-2xl"
+              className="bg-white rounded-2xl p-12 max-w-[1064px] w-full shadow-2xl animate-in zoom-in-95 duration-200"
+              style={{ boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)' }}
             >
               <h2 
-                className="text-[52px] font-semibold leading-[62px] tracking-[-2px] text-center font-[var(--font-poppins)]"
-                style={{ color: '#090914' }}
+                className="text-[52px] font-bold leading-[62px] tracking-tight text-center font-[var(--font-poppins)] mb-2"
+                style={{ color: '#090914', letterSpacing: '-0.02em' }}
               >
-                장바구니에 인식된 개수와 다릅니다.
+                장바구니에 인식된 개수와 다릅니다
               </h2>
-              <div className="mt-8 flex justify-center gap-4">
+              <div className="mt-10 flex justify-center gap-4">
                 <button
                   onClick={() => {
                     setScanResult(null)
                     // 스캔은 계속 유지 (stopScanning 호출 안 함)
                   }}
-                  className="px-8 py-4 bg-[#18181b] text-white rounded-lg font-semibold"
+                  className="px-10 py-4.5 bg-[#18181b] text-white rounded-xl font-semibold hover:opacity-90 transition-all duration-200 hover:scale-105 shadow-lg"
+                  style={{ boxShadow: '0 4px 12px rgba(24, 24, 27, 0.2)' }}
                 >
                   확인
                 </button>
@@ -379,23 +388,25 @@ export default function BarcodeScanPage() {
 
         {/* 성공 알림창 */}
         {scanResult === 'success' && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 backdrop-blur-sm animate-in fade-in duration-200">
             <div 
-              className="bg-white rounded-[20px] p-12 max-w-[1064px] w-full"
+              className="bg-white rounded-2xl p-12 max-w-[1064px] w-full shadow-2xl animate-in zoom-in-95 duration-200"
+              style={{ boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)' }}
             >
               <h2 
-                className="text-[52px] font-semibold leading-[62px] tracking-[-2px] text-center font-[var(--font-poppins)]"
-                style={{ color: '#090914' }}
+                className="text-[52px] font-bold leading-[62px] tracking-tight text-center font-[var(--font-poppins)] mb-2"
+                style={{ color: '#090914', letterSpacing: '-0.02em' }}
               >
                 스캔이 완료되었습니다
               </h2>
-              <div className="mt-8 flex justify-center gap-4">
+              <div className="mt-10 flex justify-center gap-4">
                 <button
                   onClick={() => {
                     setScanResult(null)
                     stopScanning()
                   }}
-                  className="px-8 py-4 bg-[#18181b] text-white rounded-lg font-semibold"
+                  className="px-10 py-4.5 bg-[#18181b] text-white rounded-xl font-semibold hover:opacity-90 transition-all duration-200 hover:scale-105 shadow-lg"
+                  style={{ boxShadow: '0 4px 12px rgba(24, 24, 27, 0.2)' }}
                 >
                   확인
                 </button>
